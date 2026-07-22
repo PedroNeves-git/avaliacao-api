@@ -32,7 +32,7 @@
 set -euo pipefail
 
 # ── Configuração (mesmos valores do application.properties) ─────────────────
-RESOURCE_GROUP="rg-tech-challenge"
+RESOURCE_GROUP="rg-tech-challenge-4"
 LOCATION="southcentralus"
 FUNCTION_APP="fn-relatorio-semanal"
 
