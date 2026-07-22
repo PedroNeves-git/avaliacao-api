@@ -4,23 +4,26 @@
 #
 # Cria, na ordem:
 #   1. Resource Group
-#   2. Azure SQL Database (server lógico + database + firewall + schema)
-#   3. Storage Account (AzureWebJobsStorage + container "relatorios")
+#   2. Conexão com o Azure Database for MySQL (instância já existente —
+#      este script não a cria, apenas aplica o schema e configura a função
+#      para usá-la)
+#   3. Storage Account (AzureWebJobsStorage + container "reports")
 #   4. Function App (Java 17, plano Consumption) + App Settings
 #
-# Por que Azure SQL (e não MySQL): o schema canônico do repositório
-# (db/schema.sql) é T-SQL, e o provider Microsoft.DBforMySQL retorna
-# InternalServerError em todas as regiões que a policy da assinatura
-# Azure for Students permite — MySQL é improvisionável nessa assinatura.
+# Banco de dados: usa a instância MySQL já provisionada
+# mysql-tech-challenge-4-br.mysql.database.azure.com (database "techchallenge").
+# O firewall/rede dessa instância é gerenciado fora deste script — garanta que
+# o IP desta máquina e os serviços do Azure tenham acesso liberado antes de
+# rodar (regra "Allow public access from any Azure service" ou IP específico).
 #
 # Pré-requisitos:
 #   - Azure CLI instalado e logado (az login)
 #   - Senha do banco na variável de ambiente SQL_ADMIN_PASSWORD
 #     (se ausente, é pedida interativamente sem eco no terminal)
-#   - sqlcmd (opcional, para aplicar o schema; presente no Cloud Shell)
+#   - mysql client (opcional, para aplicar o schema)
 #
 # Uso:
-#   export SQL_ADMIN_PASSWORD='<senha forte>'
+#   export SQL_ADMIN_PASSWORD='<senha do usuário admin_db>'
 #   ./provision.sh
 #
 # O script é seguro de re-executar: recursos já existentes são reaproveitados.
@@ -33,34 +36,30 @@ RESOURCE_GROUP="rg-tech-challenge"
 LOCATION="southcentralus"
 FUNCTION_APP="fn-relatorio-semanal"
 
-# Azure SQL não aceita criação em todas as regiões para assinaturas de
-# estudante ('RegionDoesNotAllowProvisioning'); centralus foi validada.
-# Pode ser sobrescrita: export SQL_LOCATION=eastus2
-SQL_LOCATION="${SQL_LOCATION:-centralus}"
+# Instância MySQL já existente — não é criada por este script.
+MYSQL_HOST="mysql-tech-challenge-4-br.mysql.database.azure.com"
+MYSQL_PORT="3306"
+DB_NAME="techchallenge"
+SQL_ADMIN_USER="admin_db"
 
-# Nomes globais precisam ser únicos no Azure inteiro; o sufixo torna isso
-# reprodutível por assinatura sem colidir com nomes de outros alunos. O nome
-# do SQL Server inclui a região porque um create que falha "prende" o nome à
-# região tentada (registro fantasma no ARM).
+# Nome global precisa ser único no Azure inteiro; o sufixo torna isso
+# reprodutível por assinatura sem colidir com nomes de outros alunos.
 SUFFIX=$(az account show --query id -o tsv | cut -c1-8)
-SQL_SERVER="sql-tech-challenge-${SUFFIX}-${SQL_LOCATION:0:4}"
 STORAGE_ACCOUNT="sttechchallenge${SUFFIX}"   # só minúsculas/números, máx. 24 chars
-DB_NAME="feedback"
-SQL_ADMIN_USER="fiapadmin"
-BLOB_CONTAINER="relatorios"
+BLOB_CONTAINER="reports"
 
 # Senha via variável de ambiente ou, na falta dela, pedida interativamente
 # (sem eco no terminal e sem passar por argumento, para não vazar no histórico).
-# Aceita MYSQL_ADMIN_PASSWORD como alias legado.
+# Aceita MYSQL_ADMIN_PASSWORD como alias.
 SQL_ADMIN_PASSWORD="${SQL_ADMIN_PASSWORD:-${MYSQL_ADMIN_PASSWORD:-}}"
 if [[ -z "$SQL_ADMIN_PASSWORD" ]]; then
-    read -r -s -p "Senha do admin do SQL (SQL_ADMIN_PASSWORD): " SQL_ADMIN_PASSWORD
+    read -r -s -p "Senha do admin do MySQL (SQL_ADMIN_PASSWORD): " SQL_ADMIN_PASSWORD
     echo
 fi
 : "${SQL_ADMIN_PASSWORD:?Senha vazia — defina SQL_ADMIN_PASSWORD ou informe quando solicitado}"
 
 echo "==> Assinatura: $(az account show --query name -o tsv)"
-echo "==> Recursos: RG=$RESOURCE_GROUP | SQL=$SQL_SERVER | Storage=$STORAGE_ACCOUNT | App=$FUNCTION_APP"
+echo "==> Recursos: RG=$RESOURCE_GROUP | MySQL=$MYSQL_HOST | Storage=$STORAGE_ACCOUNT | App=$FUNCTION_APP"
 
 # ── 1. Resource Group ────────────────────────────────────────────────────────
 echo "==> [1/4] Resource Group"
@@ -73,60 +72,20 @@ else
     az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
 fi
 
-# ── 2. Azure SQL Database ────────────────────────────────────────────────────
-echo "==> [2/4] Azure SQL (server lógico + database Basic — menor custo)"
-if az sql server show --resource-group "$RESOURCE_GROUP" --name "$SQL_SERVER" --output none 2>/dev/null; then
-    echo "    - server já existe — reaproveitando"
-else
-    echo "    - criando server em '$SQL_LOCATION'"
-    az sql server create \
-        --resource-group "$RESOURCE_GROUP" \
-        --name "$SQL_SERVER" \
-        --location "$SQL_LOCATION" \
-        --admin-user "$SQL_ADMIN_USER" \
-        --admin-password "$SQL_ADMIN_PASSWORD" \
-        --output none
-fi
-
-echo "    - database '$DB_NAME' (tier Basic, 2 GB)"
-az sql db create \
-    --resource-group "$RESOURCE_GROUP" \
-    --server "$SQL_SERVER" \
-    --name "$DB_NAME" \
-    --edition Basic \
-    --capacity 5 \
-    --max-size 2GB \
-    --output none
-
-echo "    - firewall: liberando serviços do Azure (Function App -> banco)"
-az sql server firewall-rule create \
-    --resource-group "$RESOURCE_GROUP" \
-    --server "$SQL_SERVER" \
-    --name "AllowAzureServices" \
-    --start-ip-address 0.0.0.0 \
-    --end-ip-address 0.0.0.0 \
-    --output none
-
-echo "    - firewall: liberando IP desta máquina (para aplicar o schema)"
-# -4 força IPv4: o firewall do Azure SQL não aceita endereços IPv6
-MY_IP=$(curl -4 -s https://ifconfig.me)
-az sql server firewall-rule create \
-    --resource-group "$RESOURCE_GROUP" \
-    --server "$SQL_SERVER" \
-    --name "dev-$(whoami)" \
-    --start-ip-address "$MY_IP" \
-    --end-ip-address "$MY_IP" \
-    --output none
-
-SQL_FQDN="${SQL_SERVER}.database.windows.net"
+# ── 2. Banco de dados (MySQL — instância existente) ──────────────────────────
+echo "==> [2/4] Banco de dados MySQL (instância existente: $MYSQL_HOST)"
 SCHEMA_FILE="$(cd "$(dirname "$0")/../.." && pwd)/db/schema.sql"
-echo "    - aplicando schema (db/schema.sql — idempotente, usa IF NOT EXISTS)"
-if command -v sqlcmd >/dev/null 2>&1; then
-    sqlcmd -S "$SQL_FQDN" -d "$DB_NAME" -U "$SQL_ADMIN_USER" -P "$SQL_ADMIN_PASSWORD" \
-        -i "$SCHEMA_FILE" -b
+if command -v mysql >/dev/null 2>&1; then
+    if [[ -f "$SCHEMA_FILE" ]]; then
+        echo "    - aplicando schema ($SCHEMA_FILE — idempotente, usa IF NOT EXISTS)"
+        mysql --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$SQL_ADMIN_USER" \
+            --password="$SQL_ADMIN_PASSWORD" --ssl-mode=REQUIRED "$DB_NAME" < "$SCHEMA_FILE"
+    else
+        echo "    - AVISO: schema não encontrado em $SCHEMA_FILE — pulando aplicação"
+    fi
 else
-    echo "      AVISO: 'sqlcmd' não encontrado — aplique o schema manualmente:"
-    echo "        sqlcmd -S $SQL_FQDN -d $DB_NAME -U $SQL_ADMIN_USER -P '<senha>' -i db/schema.sql"
+    echo "    - AVISO: cliente 'mysql' não encontrado — aplique o schema manualmente:"
+    echo "        mysql --host=$MYSQL_HOST --user=$SQL_ADMIN_USER -p $DB_NAME < db/schema.sql"
 fi
 
 # ── 3. Storage Account ───────────────────────────────────────────────────────
@@ -184,7 +143,7 @@ az resource update \
     --output none
 
 echo "    - App Settings (variáveis de ambiente da função)"
-DB_URL="jdbc:sqlserver://${SQL_FQDN}:1433;databaseName=${DB_NAME};encrypt=true;trustServerCertificate=false;loginTimeout=30"
+DB_URL="jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${DB_NAME}?useSSL=true"
 az functionapp config appsettings set \
     --resource-group "$RESOURCE_GROUP" \
     --name "$FUNCTION_APP" \
@@ -199,7 +158,7 @@ echo
 echo "============================================================"
 echo "Provisionamento concluído."
 echo
-echo "  SQL:      ${SQL_FQDN} (db: $DB_NAME)"
+echo "  MySQL:    ${MYSQL_HOST} (db: $DB_NAME)"
 echo "  Storage:  $STORAGE_ACCOUNT (container: $BLOB_CONTAINER)"
 echo "  Function: $FUNCTION_APP"
 echo

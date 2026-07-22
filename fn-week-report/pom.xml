@@ -64,7 +64,7 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-mssql</artifactId>
+            <artifactId>quarkus-jdbc-mysql</artifactId>
         </dependency>
 
         <!-- Serialização JSON -->
@@ -91,11 +91,11 @@
             <artifactId>quarkus-junit5-mockito</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- SQL Server em container para os testes de integração do gateway
+        <!-- MySQL em container para os testes de integração do gateway
              (usado pelos Dev Services do Quarkus no perfil de teste) -->
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mssqlserver</artifactId>
+            <artifactId>mysql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
