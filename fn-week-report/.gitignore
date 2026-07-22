@@ -1,0 +1,4 @@
+target/
+.quarkus/
+*.log
+local.settings.json
