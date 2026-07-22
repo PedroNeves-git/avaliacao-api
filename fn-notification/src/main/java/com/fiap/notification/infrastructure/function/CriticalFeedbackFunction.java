@@ -20,11 +20,11 @@ public class CriticalFeedbackFunction {
 
     @FunctionName("notifyCritical")
     public void run(
-            @QueueTrigger(name = "message", queueName = "critical-feedback", connection = "AzureWebJobsStorage")
+            @QueueTrigger(name = "message", queueName = "%QUEUE_NAME%", connection = "QUEUE_CONNECTION")
             String message,
             final ExecutionContext context) {
 
-        context.getLogger().info("Message received from queue critical-feedback");
+        context.getLogger().info("Message received from feedback queue");
 
         Feedback feedback = parse(message, context);
         notifyAdminUseCase.notify(feedback);
