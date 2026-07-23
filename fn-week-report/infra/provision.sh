@@ -33,8 +33,12 @@ set -euo pipefail
 
 # ── Configuração (mesmos valores do application.properties) ─────────────────
 RESOURCE_GROUP="rg-tech-challenge-4"
-LOCATION="southcentralus"
-FUNCTION_APP="fn-relatorio-semanal"
+# eastus: onde já vivem o MySQL e o restante da infra deste RG. O RG está
+# marcado como brazilsouth nos metadados, mas os recursos ficam em eastus —
+# criar a função na mesma região do banco reduz latência e evita bloqueios
+# de política ('RegionDoesNotAllowProvisioning') da assinatura de estudante.
+LOCATION="eastus"
+FUNCTION_APP="fn-week-report"
 
 # Instância MySQL já existente — não é criada por este script.
 MYSQL_HOST="mysql-tech-challenge-4-br.mysql.database.azure.com"
@@ -63,11 +67,11 @@ echo "==> Recursos: RG=$RESOURCE_GROUP | MySQL=$MYSQL_HOST | Storage=$STORAGE_AC
 
 # ── 1. Resource Group ────────────────────────────────────────────────────────
 echo "==> [1/4] Resource Group"
-# Se o RG já existe, reaproveita a região dele (um RG não pode ser recriado em
-# outra região, e os demais recursos devem ficar na mesma região do grupo).
+# O RG deste desafio já existe (região dos metadados = brazilsouth), mas os
+# recursos vivem em eastus. NÃO herdamos a região do RG de propósito: os novos
+# recursos são criados em $LOCATION (eastus), junto do banco.
 if az group show --name "$RESOURCE_GROUP" --output none 2>/dev/null; then
-    LOCATION=$(az group show --name "$RESOURCE_GROUP" --query location -o tsv)
-    echo "    - já existe em '$LOCATION' — reaproveitando região"
+    echo "    - já existe — criando recursos em '$LOCATION' (mesma região do banco)"
 else
     az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
 fi

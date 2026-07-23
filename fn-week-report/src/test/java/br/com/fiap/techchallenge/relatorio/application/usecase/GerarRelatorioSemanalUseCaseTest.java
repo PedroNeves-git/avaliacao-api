@@ -47,17 +47,17 @@ class GerarRelatorioSemanalUseCaseTest {
                 Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
-    private Feedback feedback(int nota, String urgencia, LocalDateTime dataEnvio) {
-        return new Feedback("descricao " + nota, nota, urgencia, dataEnvio);
+    private Feedback feedback(int nota, LocalDateTime dataEnvio) {
+        return new Feedback("descricao " + nota, nota, dataEnvio);
     }
 
     @Test
     @DisplayName("Calcula a média geral das notas do período, arredondada a 2 casas")
     void calculaMediaDasNotas() {
         when(feedbackGateway.buscarPorPeriodo(any(), any())).thenReturn(List.of(
-                feedback(10, "BAIXA", FIM.minusDays(1)),
-                feedback(7, "MEDIA", FIM.minusDays(2)),
-                feedback(3, "ALTA", FIM.minusDays(3))));
+                feedback(10, FIM.minusDays(1)),
+                feedback(7, FIM.minusDays(2)),
+                feedback(3, FIM.minusDays(3))));
 
         RelatorioSemanal relatorio = useCase.gerarRelatorio();
 
@@ -71,31 +71,15 @@ class GerarRelatorioSemanalUseCaseTest {
         LocalDateTime ontem = FIM.minusDays(1);
         LocalDateTime anteontem = FIM.minusDays(2);
         when(feedbackGateway.buscarPorPeriodo(any(), any())).thenReturn(List.of(
-                feedback(8, "BAIXA", ontem.withHour(9)),
-                feedback(6, "BAIXA", ontem.withHour(15)),
-                feedback(4, "ALTA", anteontem.withHour(10))));
+                feedback(8, ontem.withHour(9)),
+                feedback(6, ontem.withHour(15)),
+                feedback(4, anteontem.withHour(10))));
 
         RelatorioSemanal relatorio = useCase.gerarRelatorio();
 
         assertEquals(
                 Map.of(ontem.toLocalDate(), 2L, anteontem.toLocalDate(), 1L),
                 relatorio.quantidadePorDia());
-    }
-
-    @Test
-    @DisplayName("Agrupa a quantidade de avaliações por nível de urgência")
-    void agrupaQuantidadePorUrgencia() {
-        when(feedbackGateway.buscarPorPeriodo(any(), any())).thenReturn(List.of(
-                feedback(9, "BAIXA", FIM.minusDays(1)),
-                feedback(2, "ALTA", FIM.minusDays(2)),
-                feedback(1, "ALTA", FIM.minusDays(2)),
-                feedback(5, "MEDIA", FIM.minusDays(4))));
-
-        RelatorioSemanal relatorio = useCase.gerarRelatorio();
-
-        assertEquals(
-                Map.of("BAIXA", 1L, "MEDIA", 1L, "ALTA", 2L),
-                relatorio.quantidadePorUrgencia());
     }
 
     @Test
@@ -108,7 +92,6 @@ class GerarRelatorioSemanalUseCaseTest {
         assertEquals(0.0, relatorio.mediaGeralNotas());
         assertEquals(0, relatorio.totalAvaliacoes());
         assertTrue(relatorio.quantidadePorDia().isEmpty());
-        assertTrue(relatorio.quantidadePorUrgencia().isEmpty());
         assertTrue(relatorio.avaliacoes().isEmpty());
     }
 
@@ -128,7 +111,7 @@ class GerarRelatorioSemanalUseCaseTest {
     @DisplayName("Consulta a janela dos últimos 7 dias e publica o relatório consolidado")
     void publicaRelatorioComJanelaDeSeteDias() {
         when(feedbackGateway.buscarPorPeriodo(eq(FIM.minusDays(7)), eq(FIM))).thenReturn(List.of(
-                feedback(10, "CRITICA", FIM.minusDays(1))));
+                feedback(10, FIM.minusDays(1))));
 
         useCase.executar();
 
@@ -138,9 +121,8 @@ class GerarRelatorioSemanalUseCaseTest {
         assertEquals(LocalDate.of(2026, 7, 6), relatorio.periodoInicio());
         assertEquals(LocalDate.of(2026, 7, 13), relatorio.periodoFim());
         assertEquals(10.0, relatorio.mediaGeralNotas());
-        assertEquals(Map.of("CRITICA", 1L), relatorio.quantidadePorUrgencia());
         assertEquals(1, relatorio.avaliacoes().size());
-        assertEquals("CRITICA", relatorio.avaliacoes().get(0).urgencia());
+        assertEquals("descricao 10", relatorio.avaliacoes().get(0).descricao());
     }
 
     @Test

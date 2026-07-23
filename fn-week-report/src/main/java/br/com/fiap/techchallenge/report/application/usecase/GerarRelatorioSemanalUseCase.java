@@ -21,8 +21,8 @@ import java.util.stream.Collectors;
 
 /**
  * Caso de uso do relatório semanal: consulta as avaliações dos últimos
- * 7 dias, calcula a média geral das notas e as contagens por dia e por
- * urgência, e entrega o relatório consolidado à porta de publicação.
+ * 7 dias, calcula a média geral das notas e as contagens por dia, e
+ * entrega o relatório consolidado à porta de publicação.
  *
  * <p>Depende apenas das portas ({@link FeedbackGateway} e
  * {@link RelatorioPublicadorGateway}), sem conhecer banco de dados, JSON ou
@@ -81,7 +81,6 @@ public class GerarRelatorioSemanalUseCase {
                 calcularMediaNotas(feedbacks),
                 feedbacks.size(),
                 contarPorDia(feedbacks),
-                contarPorUrgencia(feedbacks),
                 feedbacks.stream().map(AvaliacaoResumo::de).toList());
     }
 
@@ -101,14 +100,6 @@ public class GerarRelatorioSemanalUseCase {
     static Map<LocalDate, Long> contarPorDia(List<Feedback> feedbacks) {
         return feedbacks.stream().collect(Collectors.groupingBy(
                 feedback -> feedback.dataEnvio().toLocalDate(),
-                TreeMap::new,
-                Collectors.counting()));
-    }
-
-    /** Quantidade de avaliações agrupadas pelo nível de urgência. */
-    static Map<String, Long> contarPorUrgencia(List<Feedback> feedbacks) {
-        return feedbacks.stream().collect(Collectors.groupingBy(
-                Feedback::urgencia,
                 TreeMap::new,
                 Collectors.counting()));
     }

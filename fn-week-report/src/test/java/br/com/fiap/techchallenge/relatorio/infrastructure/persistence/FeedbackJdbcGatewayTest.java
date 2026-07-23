@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Teste de integração do {@link FeedbackJdbcGateway}: os Dev Services do
- * Quarkus sobem um SQL Server real via Testcontainers (exige Docker em
+ * Quarkus sobem um MySQL real via Testcontainers (exige Docker em
  * execução) e o schema é criado por {@code src/test/resources/db/init.sql}.
  */
 @QuarkusTest
@@ -38,18 +38,17 @@ class FeedbackJdbcGatewayTest {
     void limparTabela() throws SQLException {
         try (Connection con = dataSource.getConnection();
              Statement st = con.createStatement()) {
-            st.executeUpdate("DELETE FROM avaliacoes");
+            st.executeUpdate("DELETE FROM feedback");
         }
     }
 
-    private void inserir(String descricao, int nota, String urgencia, LocalDateTime dataEnvio) throws SQLException {
+    private void inserir(String description, int rating, LocalDateTime createdAt) throws SQLException {
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(
-                     "INSERT INTO avaliacoes (descricao, nota, urgencia, data_envio) VALUES (?, ?, ?, ?)")) {
-            ps.setString(1, descricao);
-            ps.setInt(2, nota);
-            ps.setString(3, urgencia);
-            ps.setObject(4, dataEnvio);
+                     "INSERT INTO feedback (description, rating, createdAt) VALUES (?, ?, ?)")) {
+            ps.setString(1, description);
+            ps.setInt(2, rating);
+            ps.setObject(3, createdAt);
             ps.executeUpdate();
         }
     }
@@ -57,10 +56,10 @@ class FeedbackJdbcGatewayTest {
     @Test
     @DisplayName("Retorna somente as avaliações dentro da janela de 7 dias")
     void filtraPelaJanelaDeSeteDias() throws SQLException {
-        inserir("dentro da janela", 8, "BAIXA", agora.minusDays(1));
-        inserir("no limite inicial (inclusivo)", 5, "MEDIA", agora.minusDays(7));
-        inserir("fora da janela (8 dias atrás)", 2, "ALTA", agora.minusDays(8));
-        inserir("fora da janela (futuro)", 9, "BAIXA", agora.plusDays(1));
+        inserir("dentro da janela", 8, agora.minusDays(1));
+        inserir("no limite inicial (inclusivo)", 5, agora.minusDays(7));
+        inserir("fora da janela (8 dias atrás)", 2, agora.minusDays(8));
+        inserir("fora da janela (futuro)", 9, agora.plusDays(1));
 
         List<Feedback> resultado = gateway.buscarPorPeriodo(agora.minusDays(7), agora);
 
@@ -70,10 +69,10 @@ class FeedbackJdbcGatewayTest {
     }
 
     @Test
-    @DisplayName("Mapeia corretamente descrição, nota, urgência e data de envio")
+    @DisplayName("Mapeia corretamente descrição, nota e data de envio")
     void mapeiaColunasCorretamente() throws SQLException {
         LocalDateTime dataEnvio = agora.minusDays(2).withNano(0);
-        inserir("produto excelente", 10, "BAIXA", dataEnvio);
+        inserir("produto excelente", 10, dataEnvio);
 
         List<Feedback> resultado = gateway.buscarPorPeriodo(agora.minusDays(7), agora);
 
@@ -81,7 +80,6 @@ class FeedbackJdbcGatewayTest {
         Feedback feedback = resultado.get(0);
         assertEquals("produto excelente", feedback.descricao());
         assertEquals(10, feedback.nota());
-        assertEquals("BAIXA", feedback.urgencia());
         assertEquals(dataEnvio, feedback.dataEnvio());
     }
 

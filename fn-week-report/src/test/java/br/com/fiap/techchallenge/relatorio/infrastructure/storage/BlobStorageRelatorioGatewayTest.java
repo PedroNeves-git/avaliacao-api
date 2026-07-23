@@ -28,7 +28,7 @@ class BlobStorageRelatorioGatewayTest {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final BlobStorageRelatorioGateway gateway =
-            new BlobStorageRelatorioGateway("UseDevelopmentStorage=true", "relatorios", mapper);
+            new BlobStorageRelatorioGateway("UseDevelopmentStorage=true", "reports", mapper);
 
     private RelatorioSemanal relatorio() {
         LocalDateTime dataEnvio = LocalDateTime.of(2026, 7, 12, 9, 30);
@@ -40,8 +40,7 @@ class BlobStorageRelatorioGatewayTest {
                 10.0,
                 1,
                 Map.of(dataEnvio.toLocalDate(), 1L),
-                Map.of("CRITICA", 1L),
-                List.of(new AvaliacaoResumo("descricao 10", "CRITICA", dataEnvio)));
+                List.of(new AvaliacaoResumo("descricao 10", dataEnvio)));
     }
 
     @Test
@@ -58,9 +57,8 @@ class BlobStorageRelatorioGatewayTest {
 
         assertTrue(conteudo.contains("\"mediaGeralNotas\""));
         assertTrue(conteudo.contains("\"quantidadePorDia\""));
-        assertTrue(conteudo.contains("\"quantidadePorUrgencia\""));
         assertTrue(conteudo.contains("\"dataEnvio\""));
-        assertTrue(conteudo.contains("\"urgencia\" : \"CRITICA\"")
-                || conteudo.contains("\"urgencia\":\"CRITICA\""));
+        assertTrue(conteudo.contains("\"descricao\" : \"descricao 10\"")
+                || conteudo.contains("\"descricao\":\"descricao 10\""));
     }
 }

@@ -15,8 +15,7 @@ import java.util.Map;
  * @param mediaGeralNotas       média das notas no período ({@code 0.0} se não houver avaliações)
  * @param totalAvaliacoes       total de avaliações no período
  * @param quantidadePorDia      quantidade de avaliações agrupadas por dia de envio
- * @param quantidadePorUrgencia quantidade de avaliações agrupadas por nível de urgência
- * @param avaliacoes            avaliações do período (descrição, urgência e data de envio)
+ * @param avaliacoes            avaliações do período (descrição e data de envio)
  */
 public record RelatorioSemanal(
         String descricao,
@@ -26,6 +25,5 @@ public record RelatorioSemanal(
         double mediaGeralNotas,
         long totalAvaliacoes,
         Map<LocalDate, Long> quantidadePorDia,
-        Map<String, Long> quantidadePorUrgencia,
         List<AvaliacaoResumo> avaliacoes) {
 }
