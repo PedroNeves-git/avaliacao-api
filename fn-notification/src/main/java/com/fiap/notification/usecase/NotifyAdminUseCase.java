@@ -22,7 +22,6 @@ public class NotifyAdminUseCase {
             LOG.infof("Feedback %s is %s; notification skipped", feedback.id(), feedback.urgency());
             return;
         }
-
         LOG.infof("Critical feedback %s detected; notifying administrators", feedback.id());
         emailGateway.send(AlertMessage.from(feedback));
         LOG.infof("Notification sent for feedback %s", feedback.id());
