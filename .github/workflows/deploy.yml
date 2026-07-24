@@ -1,0 +1,45 @@
+name: Deploy Azure Functions
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: fn-feedback
+            app: func-feedback-tech-challenge
+            secret: PUBLISH_PROFILE_FEEDBACK
+          - dir: fn-notification
+            app: func-notification-tech-challenge
+            secret: PUBLISH_PROFILE_NOTIFICATION
+          - dir: fn-week-report
+            app: fn-week-report
+            secret: PUBLISH_PROFILE_WEEKREPORT
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build ${{ matrix.dir }}
+        working-directory: ${{ matrix.dir }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -DskipTests -Dquarkus.profile=prod clean package
+
+      - name: Deploy ${{ matrix.app }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ matrix.app }}
+          package: ${{ matrix.dir }}/target/azure-functions/${{ matrix.app }}
+          publish-profile: ${{ secrets[matrix.secret] }}
