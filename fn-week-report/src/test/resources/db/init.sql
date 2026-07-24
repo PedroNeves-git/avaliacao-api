@@ -1,9 +1,8 @@
--- Schema de teste (MySQL — mesmo formato de db/schema.sql da raiz do repositório)
-CREATE TABLE avaliacoes (
+-- Schema de teste (MySQL — mesma tabela `feedback` alimentada pela func-feedback)
+CREATE TABLE feedback (
     id          BIGINT        NOT NULL AUTO_INCREMENT,
-    descricao   VARCHAR(1000) NOT NULL,
-    nota        INT           NOT NULL,
-    urgencia    VARCHAR(10)   NOT NULL,
-    data_envio  DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    description VARCHAR(255),
+    rating      INT,
+    createdAt   DATETIME      DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
 );

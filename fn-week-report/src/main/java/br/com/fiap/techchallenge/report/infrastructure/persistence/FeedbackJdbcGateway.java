@@ -17,20 +17,20 @@ import java.util.List;
 
 /**
  * Adapter de persistência da porta {@link FeedbackGateway}: acesso de leitura
- * (somente SELECT) à tabela {@code avaliacoes}, via JDBC puro.
+ * (somente SELECT) à tabela {@code feedback}, via JDBC puro.
  *
- * <p>O nome da tabela e das colunas segue o script {@code db/schema.sql} da raiz
- * do repositório (tabela {@code avaliacoes}: {@code id}, {@code descricao},
- * {@code nota}, {@code urgencia}, {@code data_envio}).</p>
+ * <p>A tabela {@code feedback} é a mesma alimentada pela função de recebimento
+ * de feedback ({@code func-feedback}) no banco {@code techchallenge}:
+ * {@code id}, {@code description}, {@code rating}, {@code createdAt}.</p>
  */
 @ApplicationScoped
 public class FeedbackJdbcGateway implements FeedbackGateway {
 
     private static final String SQL_BUSCAR_POR_PERIODO = """
-            SELECT descricao, nota, urgencia, data_envio
-              FROM avaliacoes
-             WHERE data_envio >= ? AND data_envio < ?
-             ORDER BY data_envio
+            SELECT description, rating, createdAt
+              FROM feedback
+             WHERE createdAt >= ? AND createdAt < ?
+             ORDER BY createdAt
             """;
 
     private final DataSource dataSource;
@@ -52,10 +52,9 @@ public class FeedbackJdbcGateway implements FeedbackGateway {
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     feedbacks.add(new Feedback(
-                            rs.getString("descricao"),
-                            rs.getInt("nota"),
-                            rs.getString("urgencia"),
-                            rs.getObject("data_envio", LocalDateTime.class)));
+                            rs.getString("description"),
+                            rs.getInt("rating"),
+                            rs.getObject("createdAt", LocalDateTime.class)));
                 }
             }
             return feedbacks;
