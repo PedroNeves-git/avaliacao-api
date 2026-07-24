@@ -164,13 +164,21 @@ As credenciais **não ficam no código** — são configuradas como *app setting
 
 ## Deploy automatizado (CI/CD)
 
-O deploy é automatizado com **GitHub Actions** (`.github/workflows/deploy.yml`):
+O deploy é automatizado com **GitHub Actions**, um workflow independente por função em `.github/workflows/`:
 
-- **Gatilho:** todo `push`/merge no branch `main` (e disparo manual via `workflow_dispatch`).
-- **Passos:** para cada função — checkout → build com Maven → deploy no Azure via `Azure/functions-action`.
+| Workflow | Função | Function App (Azure) |
+|---|---|---|
+| `deploy-fn-feedback.yml` | `fn-feedback` | `func-feedback-tech-challenge` |
+| `deploy-fn-notification.yml` | `fn-notification` | `func-notification-tech-challenge` |
+| `deploy-fn-week-report.yml` | `fn-week-report` | `fn-week-report` |
+
+Todas as três apps vivem no resource group `rg-tech-challenge-4` na Azure.
+
+- **Gatilho:** `push`/merge no branch `main` que altere arquivos **dentro da pasta daquela função** (`paths` filtra por diretório), além de disparo manual via `workflow_dispatch`. Ou seja, alterar `fn-feedback/**` dispara **somente** o deploy da `fn-feedback`, não das outras duas.
+- **Passos:** checkout → build com Maven → deploy no Azure via `Azure/functions-action`.
 - **Autenticação:** cada Function App tem seu **publish profile** guardado como *secret* no GitHub (`PUBLISH_PROFILE_*`), sem credenciais no código.
 
-Disparo manual (sem commit): aba **Actions** → **Deploy Azure Functions** → **Run workflow**.
+Disparo manual (sem commit): aba **Actions** → escolher o workflow da função desejada → **Run workflow**.
 
 ## Monitoramento
 

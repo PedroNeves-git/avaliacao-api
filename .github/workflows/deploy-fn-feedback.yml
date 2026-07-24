@@ -1,0 +1,29 @@
+name: Deploy fn-feedback
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'fn-feedback/**'
+      - '.github/workflows/deploy-fn-feedback.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build
+        working-directory: fn-feedback
+        run: mvn -B -DskipTests -Dquarkus.profile=prod clean package
+      - name: Deploy
+        uses: Azure/functions-action@v1
+        with:
+          app-name: func-feedback-tech-challenge
+          package: fn-feedback/target/azure-functions/func-feedback-tech-challenge
+          publish-profile: ${{ secrets.PUBLISH_PROFILE_FEEDBACK }}

@@ -1,0 +1,29 @@
+name: Deploy fn-notification
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'fn-notification/**'
+      - '.github/workflows/deploy-fn-notification.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build
+        working-directory: fn-notification
+        run: mvn -B -DskipTests -Dquarkus.profile=prod clean package
+      - name: Deploy
+        uses: Azure/functions-action@v1
+        with:
+          app-name: func-notification-tech-challenge
+          package: fn-notification/target/azure-functions/func-notification-tech-challenge
+          publish-profile: ${{ secrets.PUBLISH_PROFILE_NOTIFICATION }}
