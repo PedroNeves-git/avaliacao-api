@@ -1,8 +1,8 @@
-package br.com.fiap.techchallenge.relatorio.infrastructure.persistence;
+package br.com.fiap.techchallenge.report.infrastructure.persistence;
 
-import br.com.fiap.techchallenge.relatorio.application.gateway.FeedbackGateway;
-import br.com.fiap.techchallenge.relatorio.domain.exception.RelatorioException;
-import br.com.fiap.techchallenge.relatorio.domain.model.Feedback;
+import br.com.fiap.techchallenge.report.application.gateway.FeedbackGateway;
+import br.com.fiap.techchallenge.report.domain.exception.ReportException;
+import br.com.fiap.techchallenge.report.domain.model.Feedback;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -15,18 +15,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Adapter de persistência da porta {@link FeedbackGateway}: acesso de leitura
- * (somente SELECT) à tabela {@code feedback}, via JDBC puro.
- *
- * <p>A tabela {@code feedback} é a mesma alimentada pela função de recebimento
- * de feedback ({@code func-feedback}) no banco {@code techchallenge}:
- * {@code id}, {@code description}, {@code rating}, {@code createdAt}.</p>
- */
+// tabela "feedback" é a mesma alimentada pela func-feedback no banco techchallenge
 @ApplicationScoped
 public class FeedbackJdbcGateway implements FeedbackGateway {
 
-    private static final String SQL_BUSCAR_POR_PERIODO = """
+    private static final String SQL_FIND_BY_PERIOD = """
             SELECT description, rating, createdAt
               FROM feedback
              WHERE createdAt >= ? AND createdAt < ?
@@ -41,13 +34,13 @@ public class FeedbackJdbcGateway implements FeedbackGateway {
     }
 
     @Override
-    public List<Feedback> buscarPorPeriodo(LocalDateTime inicio, LocalDateTime fim) {
+    public List<Feedback> findByPeriod(LocalDateTime start, LocalDateTime end) {
         List<Feedback> feedbacks = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(SQL_BUSCAR_POR_PERIODO)) {
+             PreparedStatement statement = connection.prepareStatement(SQL_FIND_BY_PERIOD)) {
 
-            statement.setObject(1, inicio);
-            statement.setObject(2, fim);
+            statement.setObject(1, start);
+            statement.setObject(2, end);
 
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
@@ -59,7 +52,7 @@ public class FeedbackJdbcGateway implements FeedbackGateway {
             }
             return feedbacks;
         } catch (SQLException e) {
-            throw new RelatorioException(
+            throw new ReportException(
                     "Falha ao consultar as avaliações no banco de dados: " + e.getMessage(), e);
         }
     }
